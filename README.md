@@ -4,7 +4,7 @@ N741 Spring2020 - regression demo
 
 View Slides in PDF
 
-* 
+* [PDF of Modeling and Prediction Slides](https://github.com/melindahiggins2000/N741_Spring2020_regression_demo/blob/master/Modeling%20and%20Prediction.pdf)
 * These slides are also provided in PPT format which can be downloaded and viewed offline
 
 View lessons in HTML pages:

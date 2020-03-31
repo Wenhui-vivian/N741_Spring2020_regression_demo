@@ -1,0 +1,292 @@
+---
+title: "Logistic Regression"
+author: "Melinda Higgins & Vicki Hertzberg"
+date: "3/30/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+# set echo = TRUE to see code
+knitr::opts_chunk$set(echo = TRUE)
+
+# set these to false to hide
+# warnings, messages and errors
+# to clean up output in report
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(error = FALSE)
+```
+
+## Understanding the LOGIT function
+
+In logistic regression to goal is to predict the probability of an outcome like YES vs NO or the probability that the regression equation predicts membership in group A or B.
+
+<center>
+![](logreg_diagram.PNG){width=75%}
+</center>
+
+The linear logistic-regression or the linear logit model is given by this equation
+
+$$ \pi_i = \frac{1}{1+exp[-(\alpha + \beta X_i)]} $$
+
+where $\pi_i$ is the probability of the desired outcome.
+
+Given this equation then
+
+$$ Odds = \frac{\pi}{1 - \pi} $$
+
+and
+
+$$ Logit = log_e(\frac{\pi}{1 - \pi}) $$
+
+and
+
+$$ Logit = \alpha + \beta X_i $$
+
+So, let's look at a hypothetical logistic regression equation where 
+
+$$ Logit = 2 + 1.5 X_i $$
+
+We'll look at this function over X's ranging from -5 to 2 and we'll look at each step in between by computing the Logit, Odds and Probability and then we'll make a plot of each one.
+
+```{r}
+x <- seq(from=-5, to=2, by=0.1)
+y.logit <- 2 + 1.5*x
+y.odds <- exp(y.logit)
+y.prob <- y.odds/(1+y.odds)
+x.df <- data.frame(x,y.logit,y.odds,y.prob)
+```
+
+### Table of X, Logit, Odds, Probability (excerpt of 20 rows)
+
+```{r}
+knitr::kable(x.df[30:50,],
+             col.names = c("X",
+                           "Logit = 2+1.5x",
+                           "Odds = P/1-P",
+                           "Probability P"))
+```
+
+### Plot of the Logit
+
+```{r}
+plot(x,y.logit,
+     xlab = "X values",
+     ylab = "Logit = 2 + 1.5*X")
+lines(x,y.logit)
+```
+
+### Plot of the Odds
+
+```{r}
+plot(x,y.odds,
+     xlab = "X values",
+     ylab = "Odds = exp(2 + 1.5*X)")
+lines(x,y.odds)
+```
+
+### Plot of the Probability
+
+```{r}
+plot(x,y.prob,
+     xlab = "X values",
+     ylab = "Probability = Odds/(1+Odds)")
+lines(x,y.prob)
+```
+
+So, when we "fit" a logistic regression model, we are solving for the best fit line for this equation:
+
+$$ Logit = log_e(\frac{\pi}{1 - \pi}) = \alpha + \beta X_i $$
+
+where the "logit" function LINKS the outcome (or a mathematical transformation of the outcome) - in this case the $\pi$ with the linear predictor equation $\alpha + \beta X_i$.
+
+Similarly, if we take the "exponent" of both sides of this equation we get:
+
+$$ Odds = \frac{\pi}{1 - \pi} = e^{\alpha + \beta X_i} $$
+
+This is why logistic regression yields "ODDS RATIOS" or some software lists these as "exp B".
+
+## Try out logistic regression - Kyphosis dataset
+
+Learn more about the `kyphosis` dataset in the `rpart` package at [https://www.rdocumentation.org/packages/rpart/versions/4.1-15/topics/kyphosis](https://www.rdocumentation.org/packages/rpart/versions/4.1-15/topics/kyphosis).
+
+```{r}
+# The Kyphosis dataset from the rpart package
+library(rpart)
+summary(kyphosis)
+```
+
+Notice that Kyphosis is a "factor" type variable
+
+```{r}
+str(kyphosis)
+```
+
+Notice that absent is listed first and present is listed second
+
+```{r}
+table(kyphosis$Kyphosis)
+```
+
+Do a quick scatterplot matrix using the `ggpairs()` function from the `GGally` package. In this plot it appears that age is slightly older for present, the number is higher for present and start is smaller. So just based on this plot we could guess that the odds ratios for `Age` and `Number` should be >1, but will be <1 for `Start`.
+
+```{r}
+library(GGally)
+ggpairs(kyphosis)
+```
+
+Redo plot colored by kyphosis outcome
+
+```{r}
+ggpairs(kyphosis, aes(color = Kyphosis))
+```
+
+Simple logistic regression for the start variable. This model is predicting the second listed outcome for present which is logical.
+
+```{r}
+glm1 <- glm(Kyphosis ~ Start, 
+            data = kyphosis, 
+            family = binomial)
+```
+
+Get summary of model and look at the coefficients.
+
+```{r}
+summary(glm1)
+coef(glm1)
+```
+
+These do not look like odds ratios? This is because R does not by default compute the odds ratios. These are the RAW betas - you have to take the exponent of these to compute the odds ratios.
+
+```{r}
+# you have to take the exp() to get odds ratios
+exp(coef(glm1))
+```
+
+Note odds ratios > 1 indicate that for higher values for that variable the odds of having kyphosis (present) goes up.
+
+Get predicted probabilities from model for the prediction of kyphosis = "present".
+
+```{r}
+glm1.predict <- predict(glm1, newdata=kyphosis,
+                        type="response")
+```
+
+Make a plot of the predicted probability of kyphosis by the levels of start - the only predictor in this simple model.
+
+Notice that higher levels of start, lead to lower probabilities of having kyphosis. Notice the probability never goes to 1
+
+```{r}
+plot(kyphosis$Start, glm1.predict)
+abline(0.5, 0, col = "red")
+```
+
+Look at range of predicted probabilities by the original kyphosis groups. A reference line at probability = 0.5 is added.
+
+```{r}
+kyphosis.predict1 <- cbind(kyphosis, glm1.predict)
+library(ggplot2)
+ggplot(kyphosis.predict1, aes(Kyphosis, glm1.predict)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 0.5, color = "red")
+```
+
+Let's look at a "confusion matrix" - comparing the original kyphosis groups against what the model predicted. We'll look at 2 cutpoints of 0.5 and 0.2, i.e. decision lines for making a final determination.
+
+```{r}
+#confusion matrix using cutpoint of 0.5
+table(kyphosis$Kyphosis, glm1.predict > 0.5)
+
+#confusion matrix using cutpoint of 0.2
+table(kyphosis$Kyphosis, glm1.predict > 0.2)
+```
+
+Notice that with the probability > 0.5, we get better correct prediction of kyphosis = "absent" but didn't do very well for kyphosis = "present". By changing the probability to > 0.2, the model predictions for kyphosis = "present" is better but now "absent" predictions are worse. This is important for understanding the tradeoffs between false positives and false negatives. We'll explore this further below using a ROC, receiver operating curve.
+
+
+Let's add the other variables to the model and see if the predictions improve.
+
+```{r}
+# Logistic regression on Kyphosis
+glm2 <- glm(Kyphosis ~ Age + Number + Start, 
+            data = kyphosis, 
+            family = binomial)
+
+summary(glm2)
+coef(glm2)
+exp(coef(glm2))
+
+# look at model predictions
+glm2.predict <- predict(glm2, newdata=kyphosis,
+                        type="response")
+
+# plot(kyphosis$Start, glm1.predict)
+kyphosis.predict2 <- cbind(kyphosis, glm2.predict)
+ggplot(kyphosis.predict2, aes(Kyphosis, glm2.predict)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 0.5, color = "red")
+
+#confusion matrix using cutpoint of 0.5
+table(kyphosis$Kyphosis, glm2.predict > 0.5)
+
+#confusion matrix using cutpoint of 0.25
+table(kyphosis$Kyphosis, glm2.predict > 0.25)
+```
+
+You can read more at [https://www.r-bloggers.com/how-to-perform-a-logistic-regression-in-r/](https://www.r-bloggers.com/how-to-perform-a-logistic-regression-in-r/)
+
+Make an ROC curve - this looks at the tradeoffs between the TPR "true positive rate" with the FPR "false positive rate". Ideally we'd want this curve to be in the upper left corner of the plot which would be perfect prediction. A curve which basically falls along Y = X, a straight diagnonal line, would be a model that does no better than flipping a coin (i.e. a really bad model).
+
+The "area under the curve" between a really bad model (along the line Y = X) and the curve for the model is the AUC. An AUC = 1 is a perfect model (which never happens). But a model with an AUC of 0.8-0.9 or better is really good. A model with an AUC around 0.7 is ok. But models with an AUC < 0.7 need more work.
+
+```{r}
+library(ROCR)
+p <- predict(glm2, newdata=kyphosis, 
+             type="response")
+pr <- prediction(p, as.numeric(kyphosis$Kyphosis))
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+abline(0, 1, col = "red")
+```
+
+Compute the AUC for this model - it is not too bad.
+
+```{r}
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+```
+
+## [EXTRA] More on Generalized Linear Models
+
+The LOGIT (logistic regression) is your first introduction to the "Generalized" Linear Model. There are several LINK functions that are useful to know for other kinds of outcomes:
+
+
+Family          | Link           | Function         | Type of Outcome
+----------------|----------------|------------------| -------------------
+Gaussian        | Identity       | $\mu_i$          | Continuous - Normal
+Binomial        | Logit          | $log_e(\frac{\pi}{1 - \pi})$ | Dichotomous; 2 categories
+Poisson         | Log            | $log_e(\mu_i)$   | Count
+Gamma           | Inverse        | $\mu_i^-1$       | Time to event - Survival
+Inverse-Gamma   | Inverse-square | $\mu_i^-2$       | Inverse of the Gamma
+
+## Poisson Regression
+
+For the Poisson distribution for a count variable, the probability of any given count occuring is given by this equation, where 
+
+* k=0,1,2,... the count of interest
+* $\lambda$ is the rate of occurence (the mean number of events in a fixed time interval)
+* and k! factorial is `k*(k-1)*(k-2)*...*3*2*1`
+
+$$ P(Y=k) = \frac{\lambda^k e^{- \lambda}}{k!} $$
+
+So, when we fit a Poisson regression equation, we are solving this equation
+
+$$ log_e(Y) = \alpha + \beta_1 X_i $$
+
+So, the actual count Y is equal to
+
+$$ Y = e^{\alpha + \beta_1 X_i} $$
+
